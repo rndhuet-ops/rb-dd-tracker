@@ -1,15 +1,15 @@
 const express = require("express");
 const cors    = require("cors");
- 
+
 const app  = express();
 const PORT = process.env.PORT || 3000;
- 
+
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ejdagfskxzfikxkthuyb.supabase.co";
 const SUPABASE_KEY = process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZGFnZnNreHpmaWt4a3RodXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5NzA1MDgsImV4cCI6MjA5MDU0NjUwOH0.aMA-cMofE1yJrFjrYMtPu5AfUKcIj_c9g2FLX-fdZsI";
- 
+
 app.use(cors());
 app.use(express.json());
- 
+
 async function sbFetch(path, options = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
     ...options,
@@ -28,16 +28,16 @@ async function sbFetch(path, options = {}) {
   const text = await res.text();
   return text ? JSON.parse(text) : [];
 }
- 
+
 // POST /webhook
 app.post("/webhook", async (req, res) => {
   const { pair, result, rr, rRealized, account, direction, entry, sl, tp, comment } = req.body;
   if (!pair || !result) return res.status(400).json({ error: "pair et result requis" });
- 
+
   const rReal = rRealized !== undefined ? rRealized : (result === "TP" ? rr : result === "SL" ? -1.0 : 0);
   const trade = {
     id:         Date.now(),
-    date:       new Date().toISOString(),
+    date:       req.body.date || new Date().toISOString(),
     pair,
     account:    account || "---",
     direction:  direction || "---",
@@ -49,7 +49,7 @@ app.post("/webhook", async (req, res) => {
     r_realized: rReal,
     comment:    comment || ""
   };
- 
+
   try {
     await sbFetch("/trades", { method: "POST", body: JSON.stringify(trade) });
     console.log(`[TRADE] ${pair} ${account} ${direction} -> ${result} (${rReal}R)`);
@@ -59,7 +59,7 @@ app.post("/webhook", async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
- 
+
 // GET /trades
 app.get("/trades", async (req, res) => {
   try {
@@ -75,7 +75,7 @@ app.get("/trades", async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
- 
+
 // GET /journal
 app.get("/journal", async (req, res) => {
   try {
@@ -85,7 +85,7 @@ app.get("/journal", async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
- 
+
 // DELETE /reset/:pair
 app.delete("/reset/:pair", async (req, res) => {
   try {
@@ -95,7 +95,7 @@ app.delete("/reset/:pair", async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
- 
+
 // GET /
 // PUT /update/:id
 app.put("/update/:id", async (req, res) => {
@@ -118,7 +118,7 @@ app.put("/update/:id", async (req, res) => {
     res.json({ ok: true });
   } catch(e) { console.error(e.message); res.status(500).json({ error: e.message }); }
 });
- 
+
 // DELETE /delete/:id
 app.delete("/delete/:id", async (req, res) => {
   try {
@@ -127,10 +127,9 @@ app.delete("/delete/:id", async (req, res) => {
     res.json({ ok: true });
   } catch(e) { console.error(e.message); res.status(500).json({ error: e.message }); }
 });
- 
+
 app.get("/", (req, res) => {
   res.json({ status: "RB DD Tracker online", db: "Supabase", time: new Date().toISOString() });
 });
- 
+
 app.listen(PORT, () => console.log(`RB DD Tracker (Supabase) running on port ${PORT}`));
- 
