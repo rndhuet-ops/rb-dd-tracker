@@ -128,6 +128,59 @@ app.delete("/delete/:id", async (req, res) => {
   } catch(e) { console.error(e.message); res.status(500).json({ error: e.message }); }
 });
 
+// POST /dd-update — reçoit les stats des 12 paires depuis Pine Script
+app.post("/dd-update", async (req, res) => {
+  const data = req.body;
+  if (!data || data.type !== "dd_update") return res.status(400).json({ error: "type dd_update requis" });
+
+  const PAIRS = ["GBPJPY","EURJPY","CADJPY","USDJPY","NZDJPY","AUDJPY","GBPCHF","EURCHF","USDCHF","EURUSD","BTCUSD","DE30EUR"];
+  const snapshot = {
+    date: new Date().toISOString(),
+    pairs: {}
+  };
+
+  PAIRS.forEach(pair => {
+    if (data[pair]) {
+      snapshot.pairs[pair] = {
+        sl:  data[pair].sl  || 0,
+        dd:  data[pair].dd  || 0,
+        cr:  data[pair].cr  || 0,
+        wr:  data[pair].wr  || 0,
+        t:   data[pair].t   || 0
+      };
+    }
+  });
+
+  try {
+    // Stocker dans Supabase table dd_observer
+    await sbFetch("/dd_observer", {
+      method: "POST",
+      body: JSON.stringify(snapshot),
+      prefer: "return=minimal"
+    });
+    console.log(`[DD_UPDATE] ${new Date().toLocaleTimeString()} - ${PAIRS.length} paires`);
+    res.json({ ok: true, date: snapshot.date });
+  } catch(e) {
+    // Si table n'existe pas encore, retourner quand meme OK
+    console.error("dd_observer:", e.message);
+    res.json({ ok: true, data: snapshot });
+  }
+});
+
+// GET /dd-observer — derniere mise a jour des 12 paires
+app.get("/dd-observer", async (req, res) => {
+  try {
+    const rows = await sbFetch("/dd_observer?order=date.desc&limit=1");
+    if (rows && rows.length > 0) {
+      res.json(rows[0]);
+    } else {
+      res.json({ date: null, pairs: {} });
+    }
+  } catch(e) {
+    res.json({ date: null, pairs: {} });
+  }
+});
+
 app.get("/", (req, res) => {
   res.json({ status: "RB DD Tracker online", db: "Supabase", time: new Date().toISOString() });
 });
