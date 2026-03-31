@@ -128,54 +128,53 @@ app.delete("/delete/:id", async (req, res) => {
   } catch(e) { console.error(e.message); res.status(500).json({ error: e.message }); }
 });
 
-// POST /dd-update — reçoit les stats des 12 paires depuis Pine Script
+// POST /dd-update — reçoit les stats d une paire depuis Pine Script
 app.post("/dd-update", async (req, res) => {
   const data = req.body;
   if (!data || data.type !== "dd_update") return res.status(400).json({ error: "type dd_update requis" });
 
   const PAIRS = ["GBPJPY","EURJPY","CADJPY","USDJPY","NZDJPY","AUDJPY","GBPCHF","EURCHF","USDCHF","EURUSD","BTCUSD","DE30EUR"];
-  const snapshot = {
-    date: new Date().toISOString(),
-    pairs: {}
-  };
+  const updated = [];
 
-  PAIRS.forEach(pair => {
+  for (const pair of PAIRS) {
     if (data[pair]) {
-      snapshot.pairs[pair] = {
-        sl:  data[pair].sl  || 0,
-        dd:  data[pair].dd  || 0,
-        cr:  data[pair].cr  || 0,
-        wr:  data[pair].wr  || 0,
-        t:   data[pair].t   || 0
+      const row = {
+        pair,
+        sl:         data[pair].sl  || 0,
+        dd:         data[pair].dd  || 0,
+        cr:         data[pair].cr  || 0,
+        wr:         data[pair].wr  || 0,
+        total:      data[pair].t   || 0,
+        updated_at: new Date().toISOString()
       };
+      try {
+        await sbFetch("/dd_observer", {
+          method: "POST",
+          body: JSON.stringify(row),
+          prefer: "resolution=merge-duplicates,return=minimal",
+          headers: { "Content-Type": "application/json" }
+        });
+        updated.push(pair);
+        console.log(`[DD_UPDATE] ${pair} sl:${row.sl} dd:${row.dd} cr:${row.cr} wr:${row.wr}`);
+      } catch(e) {
+        console.error(`dd_observer ${pair}:`, e.message);
+      }
     }
-  });
-
-  try {
-    // Stocker dans Supabase table dd_observer
-    await sbFetch("/dd_observer", {
-      method: "POST",
-      body: JSON.stringify(snapshot),
-      prefer: "return=minimal"
-    });
-    console.log(`[DD_UPDATE] ${new Date().toLocaleTimeString()} - ${PAIRS.length} paires`);
-    res.json({ ok: true, date: snapshot.date });
-  } catch(e) {
-    // Si table n'existe pas encore, retourner quand meme OK
-    console.error("dd_observer:", e.message);
-    res.json({ ok: true, data: snapshot });
   }
+
+  res.json({ ok: true, updated });
 });
 
-// GET /dd-observer — derniere mise a jour des 12 paires
+// GET /dd-observer — toutes les paires
 app.get("/dd-observer", async (req, res) => {
   try {
-    const rows = await sbFetch("/dd_observer?order=date.desc&limit=1");
-    if (rows && rows.length > 0) {
-      res.json(rows[0]);
-    } else {
-      res.json({ date: null, pairs: {} });
-    }
+    const rows = await sbFetch("/dd_observer?order=pair.asc");
+    const pairs = {};
+    rows.forEach(r => {
+      pairs[r.pair] = { sl: r.sl, dd: r.dd, cr: r.cr, wr: r.wr, t: r.total };
+    });
+    const lastUpdate = rows.length > 0 ? rows.sort((a,b) => new Date(b.updated_at)-new Date(a.updated_at))[0].updated_at : null;
+    res.json({ date: lastUpdate, pairs });
   } catch(e) {
     res.json({ date: null, pairs: {} });
   }
