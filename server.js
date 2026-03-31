@@ -1,3 +1,6 @@
+
+Copier
+
 const express = require("express");
 const cors    = require("cors");
  
@@ -97,9 +100,37 @@ app.delete("/reset/:pair", async (req, res) => {
 });
  
 // GET /
+// PUT /update/:id
+app.put("/update/:id", async (req, res) => {
+  const { pair, result, rr, rRealized, account, direction, entry, sl, tp, comment, date } = req.body;
+  const updates = {};
+  if (pair)      updates.pair      = pair;
+  if (result)    updates.result    = result;
+  if (rr)        updates.rr        = rr;
+  if (rRealized !== undefined) updates.r_realized = rRealized;
+  if (account)   updates.account   = account;
+  if (direction) updates.direction = direction;
+  if (entry)     updates.entry     = entry;
+  if (sl)        updates.sl        = sl;
+  if (tp)        updates.tp        = tp;
+  if (comment !== undefined) updates.comment = comment;
+  if (date)      updates.date      = date;
+  try {
+    await sbFetch(`/trades?id=eq.${req.params.id}`, { method:"PATCH", body: JSON.stringify(updates), prefer:"return=minimal" });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+ 
+// DELETE /delete/:id
+app.delete("/delete/:id", async (req, res) => {
+  try {
+    await sbFetch(`/trades?id=eq.${req.params.id}`, { method:"DELETE", prefer:"return=minimal" });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+ 
 app.get("/", (req, res) => {
   res.json({ status: "RB DD Tracker online", db: "Supabase", time: new Date().toISOString() });
 });
  
 app.listen(PORT, () => console.log(`RB DD Tracker (Supabase) running on port ${PORT}`));
- 
