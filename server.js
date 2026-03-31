@@ -1,6 +1,3 @@
-
-Copier
-
 const express = require("express");
 const cors    = require("cors");
  
@@ -104,29 +101,31 @@ app.delete("/reset/:pair", async (req, res) => {
 app.put("/update/:id", async (req, res) => {
   const { pair, result, rr, rRealized, account, direction, entry, sl, tp, comment, date } = req.body;
   const updates = {};
-  if (pair)      updates.pair      = pair;
-  if (result)    updates.result    = result;
-  if (rr)        updates.rr        = rr;
+  if (pair      !== undefined) updates.pair      = pair;
+  if (result    !== undefined) updates.result    = result;
+  if (rr        !== undefined) updates.rr        = rr;
   if (rRealized !== undefined) updates.r_realized = rRealized;
-  if (account)   updates.account   = account;
-  if (direction) updates.direction = direction;
-  if (entry)     updates.entry     = entry;
-  if (sl)        updates.sl        = sl;
-  if (tp)        updates.tp        = tp;
-  if (comment !== undefined) updates.comment = comment;
-  if (date)      updates.date      = date;
+  if (account   !== undefined) updates.account   = account;
+  if (direction !== undefined) updates.direction = direction;
+  if (entry     !== undefined) updates.entry     = entry;
+  if (sl        !== undefined) updates.sl        = sl;
+  if (tp        !== undefined) updates.tp        = tp;
+  if (comment   !== undefined) updates.comment   = comment;
+  if (date      !== undefined) updates.date      = date;
   try {
-    await sbFetch(`/trades?id=eq.${req.params.id}`, { method:"PATCH", body: JSON.stringify(updates), prefer:"return=minimal" });
+    await sbFetch(`/trades?id=eq.${req.params.id}`, { method:"PATCH", body: JSON.stringify(updates), prefer:"return=minimal", headers:{"Content-Type":"application/json"} });
+    console.log(`[UPDATE] trade ${req.params.id}`);
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e.message); res.status(500).json({ error: e.message }); }
 });
  
 // DELETE /delete/:id
 app.delete("/delete/:id", async (req, res) => {
   try {
     await sbFetch(`/trades?id=eq.${req.params.id}`, { method:"DELETE", prefer:"return=minimal" });
+    console.log(`[DELETE] trade ${req.params.id}`);
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { console.error(e.message); res.status(500).json({ error: e.message }); }
 });
  
 app.get("/", (req, res) => {
@@ -134,3 +133,4 @@ app.get("/", (req, res) => {
 });
  
 app.listen(PORT, () => console.log(`RB DD Tracker (Supabase) running on port ${PORT}`));
+ 
