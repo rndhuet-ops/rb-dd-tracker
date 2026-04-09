@@ -35,6 +35,8 @@ app.post("/webhook", async (req, res) => {
   if (!pair || !result) return res.status(400).json({ error: "pair et result requis" });
 
   const rReal = rRealized !== undefined ? rRealized : (result === "TP" ? rr : result === "SL" ? -1.0 : 0);
+  // Utiliser profitUSD reel si disponible sinon calculer
+  const profitUSD = req.body.profitUSD !== undefined ? req.body.profitUSD : null;
   const trade = {
     id:         Date.now(),
     date:       req.body.date || new Date().toISOString(),
@@ -47,6 +49,7 @@ app.post("/webhook", async (req, res) => {
     result,
     rr:         rr || 2.0,
     r_realized: rReal,
+    profit_usd: profitUSD,
     comment:    comment || ""
   };
 
